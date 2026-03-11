@@ -12,8 +12,5 @@ This repo is the submission target. Do not develop directly here. Fork it, build
 4. **Build your project** in your fork
 5. **Submit** by opening a PR into this repo titled `[Team Name] — PlateGallery Submission`
 
-## Submissions
-All submissions are tracked on the [Project Board](../../projects/1).
-
 ## Questions
 Drop by Innovation Hours on Wednesdays 4–6pm at BU Spark!, or email buspark@bu.edu or kzingade@bu.edu
