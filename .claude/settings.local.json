@@ -6,7 +6,13 @@
       "Bash(powershell.exe -Command \"Get-ChildItem -Recurse ''C:\\\\Users\\\\darke\\\\OneDrive\\\\Desktop\\\\vs code\\\\plate-gallery'' | Measure-Object | Select-Object -ExpandProperty Count\")",
       "Bash(powershell.exe -Command:*)",
       "Bash(wsl -- bash -c:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(mkdir -p /tmp/design)",
+      "Bash(curl -sSL -o /tmp/design/plate-gallery.html \"https://api.anthropic.com/v1/design/h/OEuBKHjk7rn42kMwtpJeRw?open_file=plate-gallery.html\")",
+      "Read(//tmp/**)",
+      "Read(//tmp/design/**)",
+      "Bash(curl -sSL -I \"https://api.anthropic.com/v1/design/h/OEuBKHjk7rn42kMwtpJeRw?open_file=plate-gallery.html\")",
+      "WebFetch(domain:api.anthropic.com)"
     ]
   }
 }
