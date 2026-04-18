@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -8,10 +10,22 @@ from app.core.errors import AppError, app_error_handler, unhandled_error_handler
 from app.core.logging import setup_logging
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    from app.db.session import engine
+    from app.db.models import Base
+    from app.services.storage import storage_service
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    await storage_service.ensure_bucket_public()
+    yield
+
+
 def create_app() -> FastAPI:
     setup_logging()
 
     app = FastAPI(
+        lifespan=lifespan,
         title="PlateGallery API",
         version="1.0.0",
         docs_url="/docs" if settings.ENV == "dev" else None,

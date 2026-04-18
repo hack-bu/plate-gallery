@@ -52,6 +52,15 @@ class StorageService:
             f"?width={width}&quality={quality}&format={format}"
         )
 
+    async def ensure_bucket_public(self) -> None:
+        url = f"{self._base}/storage/v1/bucket/{self._bucket}"
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.put(url, headers=self._headers(), json={"public": True, "id": self._bucket, "name": self._bucket})
+            if not resp.is_success:
+                logger.warning("Could not set bucket public: %s %s", resp.status_code, resp.text)
+            else:
+                logger.info("Storage bucket '%s' confirmed public.", self._bucket)
+
     async def delete_object(self, object_path: str) -> None:
         url = f"{self._base}/storage/v1/object/{self._bucket}"
         async with httpx.AsyncClient(timeout=10) as client:
