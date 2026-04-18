@@ -51,35 +51,14 @@ async def vote_on_plate(
     existing_vote = existing_result.scalar_one_or_none()
 
     if body.value == 0:
-        # Retract vote
         if existing_vote:
-            if existing_vote.value == 1:
-                plate.upvotes = max(0, plate.upvotes - 1)
-            else:
-                plate.downvotes = max(0, plate.downvotes - 1)
             await db.delete(existing_vote)
     elif existing_vote:
-        # Update existing vote
         if existing_vote.value != body.value:
-            if existing_vote.value == 1:
-                plate.upvotes = max(0, plate.upvotes - 1)
-            else:
-                plate.downvotes = max(0, plate.downvotes - 1)
-            if body.value == 1:
-                plate.upvotes += 1
-            else:
-                plate.downvotes += 1
             existing_vote.value = body.value
     else:
-        # New vote
-        vote = Vote(user_id=user.id, plate_id=plate_id, value=body.value)
-        db.add(vote)
-        if body.value == 1:
-            plate.upvotes += 1
-        else:
-            plate.downvotes += 1
+        db.add(Vote(user_id=user.id, plate_id=plate_id, value=body.value))
 
-    plate.score = plate.upvotes - plate.downvotes
     await db.commit()
     await db.refresh(plate)
 
