@@ -10,7 +10,7 @@ import { usePlateDetail, useVote, useComments, useCreateComment } from '@/hooks/
 import { useAuth } from '@/hooks/AuthContext'
 import { queryKeys } from '@/lib/queryKeys'
 import type { PlateDetail as PlateDetailType } from '@/lib/types'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 
 export default function PlateDetail() {
   const { id } = useParams<{ id: string }>()
@@ -23,11 +23,12 @@ export default function PlateDetail() {
   const createCommentMutation = useCreateComment(id!)
   const [commentBody, setCommentBody] = useState('')
   const comments = commentsData?.pages.flatMap((p) => p.items) ?? []
+  const voteInFlight = useRef(false)
 
   function handleVote(value: 1 | -1 | 0) {
-    if (!plate) return
+    if (!plate || voteInFlight.current) return
+    voteInFlight.current = true
 
-    // Optimistic update
     const prev = plate
     const delta = value - plate.user_vote
     queryClient.setQueryData(queryKeys.plates.detail(id!), (old: PlateDetailType | undefined) => {
@@ -42,6 +43,7 @@ export default function PlateDetail() {
     })
 
     voteMutation.mutate(value, {
+      onSettled: () => { voteInFlight.current = false },
       onError: () => {
         queryClient.setQueryData(queryKeys.plates.detail(id!), prev)
       },

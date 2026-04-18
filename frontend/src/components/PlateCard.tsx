@@ -6,7 +6,7 @@ export function PlateCard({ plate, priority }: { plate: Plate; priority?: boolea
     <Link to={`/plate/${plate.id}`} className="group block">
       <div className="overflow-hidden rounded-sm">
         <img
-          src={plate.image_thumb_url || plate.image_url}
+          src={plate.image_url}
           alt={`Vanity plate reading '${plate.plate_text}' from ${plate.state_name}`}
           loading={priority ? 'eager' : 'lazy'}
           decoding="async"

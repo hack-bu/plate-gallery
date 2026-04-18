@@ -85,11 +85,7 @@ export function useVote(plateId: string) {
         method: 'POST',
         body: JSON.stringify({ value }),
       }),
-    onSuccess: (data) => {
-      queryClient.setQueryData(queryKeys.plates.detail(plateId), (old: PlateDetail | undefined) => {
-        if (!old) return old
-        return { ...old, ...data }
-      })
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.plates.all })
     },
   })
