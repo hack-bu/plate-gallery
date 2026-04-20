@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import time
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select, text
@@ -10,15 +9,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import get_current_user_optional
 from app.api.v1.plates import plate_to_response
-from app.db.models import Plate, PlateStatus, User
+from app.db.models import Plate, PlateStatus, User, Vote
 from app.db.session import get_db
 from app.schemas.leaderboard import LeaderboardResponse
 
 router = APIRouter(prefix="/leaderboard", tags=["leaderboard"])
 
-# Simple cache
-_cache: dict[str, Any] = {}
-CACHE_TTL = 60
+
+async def _load_user_votes(
+    db: AsyncSession, user: User | None, plate_ids: list
+) -> dict:
+    if not user or not plate_ids:
+        return {}
+    result = await db.execute(
+        select(Vote.plate_id, Vote.value).where(
+            Vote.user_id == user.id, Vote.plate_id.in_(plate_ids)
+        )
+    )
+    return {row.plate_id: row.value for row in result}
 
 
 @router.get("/overall", response_model=LeaderboardResponse)
@@ -28,11 +36,6 @@ async def leaderboard_overall(
     user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ) -> LeaderboardResponse:
-    cache_key = f"leaderboard_{window}_{limit}"
-    now = time.time()
-    if cache_key in _cache and now - _cache[f"{cache_key}_time"] < CACHE_TTL:
-        return _cache[cache_key]
-
     stmt = (
         select(Plate)
         .where(Plate.status == PlateStatus.approved)
@@ -50,15 +53,13 @@ async def leaderboard_overall(
     result = await db.execute(stmt)
     plates = list(result.scalars().all())
 
-    response = LeaderboardResponse(
-        items=[plate_to_response(p) for p in plates],
+    user_votes = await _load_user_votes(db, user, [p.id for p in plates])
+
+    return LeaderboardResponse(
+        items=[plate_to_response(p, user_votes.get(p.id, 0)) for p in plates],
         window=window,
         generated_at=datetime.now(UTC).isoformat(),
     )
-
-    _cache[cache_key] = response
-    _cache[f"{cache_key}_time"] = now
-    return response
 
 
 @router.get("/state/{state_code}", response_model=LeaderboardResponse)
@@ -66,14 +67,10 @@ async def leaderboard_state(
     state_code: str,
     window: Literal["day", "week", "month", "all"] = Query(default="all"),
     limit: int = Query(default=10, ge=1, le=50),
+    user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ) -> LeaderboardResponse:
     code = state_code.upper()
-    cache_key = f"leaderboard_state_{code}_{window}_{limit}"
-    now = time.time()
-    if cache_key in _cache and now - _cache[f"{cache_key}_time"] < CACHE_TTL:
-        return _cache[cache_key]
-
     stmt = (
         select(Plate)
         .where(Plate.status == PlateStatus.approved, Plate.state_code == code)
@@ -91,12 +88,10 @@ async def leaderboard_state(
     result = await db.execute(stmt)
     plates = list(result.scalars().all())
 
-    response = LeaderboardResponse(
-        items=[plate_to_response(p) for p in plates],
+    user_votes = await _load_user_votes(db, user, [p.id for p in plates])
+
+    return LeaderboardResponse(
+        items=[plate_to_response(p, user_votes.get(p.id, 0)) for p in plates],
         window=window,
         generated_at=datetime.now(UTC).isoformat(),
     )
-
-    _cache[cache_key] = response
-    _cache[f"{cache_key}_time"] = now
-    return response

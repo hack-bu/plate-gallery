@@ -221,7 +221,7 @@ export default function Profile() {
             <ProfileStat v={plates.length} l="POSTED" />
             <ProfileStat v={totalUpvotes} l="TOTAL UPVOTES" accent={PG.c.rust} />
             <ProfileStat v={unlockedStates.size} l="STATES" accent={PG.c.cobalt} />
-            <ProfileStat v={favorites.length} l="SAVED" />
+            <ProfileStat v={favorites.length} l="FAVORITES" />
             <motion.button
               type="button"
               onClick={handleSignOut}
@@ -265,7 +265,7 @@ export default function Profile() {
                   />
                 )}
                 <span className="relative z-10">
-                  {t === 'plates' ? 'My Posts' : t === 'favorites' ? 'Saved' : 'My Votes'}
+                  {t === 'plates' ? 'My Posts' : t === 'favorites' ? 'Favorites' : 'My Votes'}
                 </span>
               </motion.button>
             ))}
@@ -314,7 +314,7 @@ export default function Profile() {
               ) : (
                 <div className="rounded-[18px] border-[1.5px] border-dashed border-rule bg-paper p-10 text-center">
                   <h2 className="font-display text-2xl font-black tracking-tight text-ink">
-                    No saved plates yet.
+                    No favorites yet.
                   </h2>
                   <Link
                     to="/"
@@ -415,7 +415,7 @@ export default function Profile() {
                   {favorites.length}
                 </div>
                 <div className="mt-0.5 font-mono text-[9px] font-bold uppercase tracking-wide text-ink-muted">
-                  SAVED
+                  FAVORITES
                 </div>
               </div>
             </div>

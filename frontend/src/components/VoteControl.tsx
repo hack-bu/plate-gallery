@@ -42,7 +42,9 @@ export function VoteControl({ score, userVote, onVote, disabled, size = 'md' }: 
         className={clsx(
           'flex items-center justify-center rounded-full font-black leading-none transition-colors disabled:opacity-60',
           btn,
-          userVote === 1 ? 'bg-rust text-white' : 'bg-rust/95 text-white hover:bg-rust',
+          userVote === 1
+            ? 'bg-rust text-white ring-2 ring-rust/40 ring-offset-1 ring-offset-cream shadow-sm'
+            : 'bg-paper text-ink-soft hover:bg-paper-edge',
         )}
       >
         <motion.span
@@ -83,7 +85,9 @@ export function VoteControl({ score, userVote, onVote, disabled, size = 'md' }: 
         className={clsx(
           'flex items-center justify-center rounded-full font-black leading-none transition-colors disabled:opacity-60',
           btn,
-          userVote === -1 ? 'bg-ink text-cream' : 'bg-paper text-ink-soft hover:bg-paper-edge',
+          userVote === -1
+            ? 'bg-ink text-cream ring-2 ring-ink/40 ring-offset-1 ring-offset-cream shadow-sm'
+            : 'bg-paper text-ink-soft hover:bg-paper-edge',
         )}
       >
         <motion.span

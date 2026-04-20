@@ -38,12 +38,12 @@ function PodiumCard({
         background: color,
         color: txt,
         boxShadow: '0 4px 0 var(--color-rule)',
-        height: big ? 280 : rank === 2 ? 240 : 220,
+        minHeight: big ? 280 : rank === 2 ? 240 : 220,
       }}
     >
       <div
         className="absolute right-3 top-3 font-display font-black leading-[0.8] tracking-[-3px] opacity-20"
-        style={{ fontSize: big ? 120 : 90 }}
+        style={{ fontSize: 90 }}
       >
         {String(rank).padStart(2, '0')}
       </div>

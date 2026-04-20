@@ -1,5 +1,6 @@
 import { useParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { clsx } from 'clsx'
 import { useQueryClient } from '@tanstack/react-query'
 import { useState, useRef } from 'react'
 import { usePlateDetail, useVote, useComments, useCreateComment, useToggleFavorite } from '@/hooks/useApi'
@@ -173,7 +174,12 @@ export default function PlateDetail() {
                 onClick={() => handleVote(plate.user_vote === 1 ? 0 : 1)}
                 disabled={!user || voteMutation.isPending}
                 aria-pressed={plate.user_vote === 1}
-                className="h-11 rounded-full border-[1.5px] border-rule bg-rust px-4 font-sans text-[14px] font-black text-white disabled:opacity-60"
+                className={clsx(
+                  'h-11 rounded-full border-[1.5px] px-4 font-sans text-[14px] font-black transition-colors disabled:opacity-60',
+                  plate.user_vote === 1
+                    ? 'border-rule bg-rust text-white ring-2 ring-rust/60 ring-offset-2 ring-offset-ink'
+                    : 'border-rust/70 bg-transparent text-rust hover:bg-rust/10',
+                )}
               >
                 ▲ UPVOTE
               </button>
@@ -182,7 +188,12 @@ export default function PlateDetail() {
                 onClick={() => handleVote(plate.user_vote === -1 ? 0 : -1)}
                 disabled={!user || voteMutation.isPending}
                 aria-pressed={plate.user_vote === -1}
-                className="h-11 w-11 rounded-full border-[1.5px] border-rule bg-paper text-[14px] font-black text-ink disabled:opacity-60"
+                className={clsx(
+                  'h-11 w-11 rounded-full border-[1.5px] text-[14px] font-black transition-colors disabled:opacity-60',
+                  plate.user_vote === -1
+                    ? 'border-rule bg-mustard text-ink ring-2 ring-mustard/60 ring-offset-2 ring-offset-ink'
+                    : 'border-rule/60 bg-transparent text-cream hover:bg-cream/10',
+                )}
               >
                 ▼
               </button>
