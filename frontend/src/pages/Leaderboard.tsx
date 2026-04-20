@@ -1,10 +1,11 @@
 import { useSearchParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { clsx } from 'clsx'
-import { useLeaderboard, useMapSummary } from '@/hooks/useApi'
+import { useLeaderboard, useStateLeaderboard, useMapSummary } from '@/hooks/useApi'
 import { Plate as PlateSvg } from '@/components/Plate'
 import { StateBadge } from '@/components/StateBadge'
 import { PG } from '@/lib/design'
+import { US_STATES } from '@/lib/states'
 import type { Plate } from '@/lib/types'
 
 const WINDOWS = [
@@ -178,15 +179,25 @@ function LeaderSideCards({ plates }: { plates: Plate[] }) {
 export default function Leaderboard() {
   const [searchParams, setSearchParams] = useSearchParams()
   const window = searchParams.get('window') || 'all'
-  const { data, isLoading } = useLeaderboard(window, 50)
-  const plates = data?.items ?? []
-  const [p1, p2, p3] = plates
-  const rest = plates.slice(3, 11)
+  const view = searchParams.get('view') || 'overall'
+  const stateCode = searchParams.get('state') || 'CA'
 
-  function setWindow(v: string) {
+  const overall = useLeaderboard(window, 50)
+  const state = useStateLeaderboard(stateCode, window, 10)
+
+  const active = view === 'state' ? state : overall
+  const plates = active.data?.items ?? []
+  const isLoading = active.isLoading
+  const [p1, p2, p3] = plates
+  const rest = plates.slice(3, view === 'state' ? 10 : 11)
+
+  function setParam(key: string, v: string) {
     const next = new URLSearchParams(searchParams)
-    next.set('window', v)
+    next.set(key, v)
     setSearchParams(next, { replace: true })
+  }
+  function setWindow(v: string) {
+    setParam('window', v)
   }
 
   return (
@@ -201,7 +212,7 @@ export default function Leaderboard() {
       <div className="flex flex-wrap items-end gap-4">
         <div>
           <div className="mb-1 font-mono text-[11px] font-bold uppercase tracking-[1.5px] text-ink-muted">
-            ALL 51 STATES · {WINDOWS.find((w) => w.value === window)?.label ?? 'ALL TIME'}
+            {view === 'state' ? `${US_STATES[stateCode]?.toUpperCase() ?? stateCode}` : 'ALL 51 STATES'} · {WINDOWS.find((w) => w.value === window)?.label ?? 'ALL TIME'}
           </div>
           <div className="font-display text-[80px] font-black uppercase leading-[0.88] tracking-[-2.5px] text-ink">
             HALL OF PLATES.
@@ -222,6 +233,36 @@ export default function Leaderboard() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* View toggle + state picker */}
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <div className="flex gap-2">
+          {(['overall', 'state'] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setParam('view', v)}
+              className={clsx(
+                'rounded-full border-[1.5px] border-rule px-4 py-2 text-[12px] font-extrabold uppercase tracking-[0.3px]',
+                view === v ? 'bg-ink text-cream' : 'bg-paper text-ink',
+              )}
+            >
+              {v === 'overall' ? 'Overall' : 'By State'}
+            </button>
+          ))}
+        </div>
+        {view === 'state' && (
+          <select
+            value={stateCode}
+            onChange={(e) => setParam('state', e.target.value)}
+            className="rounded-full border-[1.5px] border-rule bg-paper px-3.5 py-2 text-[12px] font-extrabold uppercase tracking-[0.3px] text-ink outline-none"
+          >
+            {Object.entries(US_STATES).map(([code, name]) => (
+              <option key={code} value={code}>{code} · {name}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       {isLoading ? (

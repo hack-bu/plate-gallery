@@ -1,4 +1,4 @@
-import { useId } from 'react'
+import { useId, useState, useEffect } from 'react'
 import { Plate } from './Plate'
 
 type CarColor = 'red' | 'navy' | 'black' | 'silver' | 'white' | 'tan' | 'forest' | 'cream'
@@ -41,6 +41,7 @@ export function PhotoSnap({
   carColor,
   time,
   imageUrl,
+  fallbackImageUrl,
   alt,
 }: {
   plate: string
@@ -51,22 +52,31 @@ export function PhotoSnap({
   carColor?: CarColor
   time?: Sky
   imageUrl?: string | null
+  fallbackImageUrl?: string | null
   alt?: string
 }) {
   const uid = useId().replace(/[:#]/g, '')
   const h = height || width * 0.75
+  const [errorCount, setErrorCount] = useState(0)
 
-  // If a real image is available, show it with the plate overlaid at bottom.
-  if (imageUrl) {
+  useEffect(() => {
+    setErrorCount(0)
+  }, [imageUrl, fallbackImageUrl])
+
+  const currentSrc =
+    errorCount === 0 ? imageUrl : errorCount === 1 && fallbackImageUrl ? fallbackImageUrl : null
+
+  if (currentSrc) {
     return (
       <div
         style={{ width, height: h, transform: `rotate(${tilt}deg)`, position: 'relative', overflow: 'hidden', background: '#000' }}
       >
         <img
-          src={imageUrl}
+          src={currentSrc}
           alt={alt ?? `Vanity plate ${plate}`}
           loading="lazy"
           decoding="async"
+          onError={() => setErrorCount((n) => n + 1)}
           style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
         />
       </div>

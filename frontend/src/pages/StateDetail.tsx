@@ -218,6 +218,7 @@ export default function StateDetail() {
                     width={280}
                     height={180}
                     imageUrl={p.image_thumb_url || p.image_url}
+                    fallbackImageUrl={p.image_url}
                     alt={`${p.plate_text} · ${p.state_name}`}
                   />
                   <div className="flex items-center gap-2 px-3 py-2.5">

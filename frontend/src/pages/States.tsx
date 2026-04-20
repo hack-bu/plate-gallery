@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, memo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { clsx } from 'clsx'
+import { ComposableMap, Geographies, Geography } from 'react-simple-maps'
 import { useMapSummary, useStateLeaderboard } from '@/hooks/useApi'
 import { Plate } from '@/components/Plate'
 import { StateBadge } from '@/components/StateBadge'
@@ -9,61 +9,18 @@ import { Pill } from '@/components/Pill'
 import { PG } from '@/lib/design'
 import { US_STATES } from '@/lib/states'
 
-type GridCell = { c: string; name: string; col: number; row: number }
+const GEO_URL = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json'
 
-const STATE_GRID: GridCell[] = [
-  { c: 'AK', name: 'Alaska', col: 1, row: 7 },
-  { c: 'ME', name: 'Maine', col: 12, row: 1 },
-  { c: 'VT', name: 'Vermont', col: 11, row: 2 },
-  { c: 'NH', name: 'New Hampshire', col: 12, row: 2 },
-  { c: 'WA', name: 'Washington', col: 2, row: 2 },
-  { c: 'ID', name: 'Idaho', col: 3, row: 2 },
-  { c: 'MT', name: 'Montana', col: 4, row: 2 },
-  { c: 'ND', name: 'North Dakota', col: 5, row: 2 },
-  { c: 'MN', name: 'Minnesota', col: 6, row: 2 },
-  { c: 'WI', name: 'Wisconsin', col: 7, row: 2 },
-  { c: 'MI', name: 'Michigan', col: 9, row: 2 },
-  { c: 'NY', name: 'New York', col: 10, row: 2 },
-  { c: 'MA', name: 'Massachusetts', col: 11, row: 3 },
-  { c: 'OR', name: 'Oregon', col: 2, row: 3 },
-  { c: 'UT', name: 'Utah', col: 3, row: 3 },
-  { c: 'WY', name: 'Wyoming', col: 4, row: 3 },
-  { c: 'SD', name: 'South Dakota', col: 5, row: 3 },
-  { c: 'IA', name: 'Iowa', col: 6, row: 3 },
-  { c: 'IL', name: 'Illinois', col: 7, row: 3 },
-  { c: 'IN', name: 'Indiana', col: 8, row: 3 },
-  { c: 'OH', name: 'Ohio', col: 9, row: 3 },
-  { c: 'PA', name: 'Pennsylvania', col: 10, row: 3 },
-  { c: 'NJ', name: 'New Jersey', col: 11, row: 4 },
-  { c: 'CT', name: 'Connecticut', col: 10, row: 4 },
-  { c: 'RI', name: 'Rhode Island', col: 12, row: 3 },
-  { c: 'CA', name: 'California', col: 2, row: 4 },
-  { c: 'NV', name: 'Nevada', col: 3, row: 4 },
-  { c: 'CO', name: 'Colorado', col: 4, row: 4 },
-  { c: 'NE', name: 'Nebraska', col: 5, row: 4 },
-  { c: 'MO', name: 'Missouri', col: 6, row: 4 },
-  { c: 'KY', name: 'Kentucky', col: 8, row: 4 },
-  { c: 'WV', name: 'West Virginia', col: 9, row: 4 },
-  { c: 'VA', name: 'Virginia', col: 10, row: 5 },
-  { c: 'MD', name: 'Maryland', col: 11, row: 5 },
-  { c: 'DE', name: 'Delaware', col: 12, row: 5 },
-  { c: 'DC', name: 'D.C.', col: 10, row: 6 },
-  { c: 'AZ', name: 'Arizona', col: 3, row: 5 },
-  { c: 'NM', name: 'New Mexico', col: 4, row: 5 },
-  { c: 'KS', name: 'Kansas', col: 5, row: 5 },
-  { c: 'OK', name: 'Oklahoma', col: 6, row: 5 },
-  { c: 'AR', name: 'Arkansas', col: 7, row: 5 },
-  { c: 'TN', name: 'Tennessee', col: 8, row: 5 },
-  { c: 'NC', name: 'North Carolina', col: 9, row: 5 },
-  { c: 'TX', name: 'Texas', col: 6, row: 6 },
-  { c: 'LA', name: 'Louisiana', col: 7, row: 6 },
-  { c: 'MS', name: 'Mississippi', col: 8, row: 6 },
-  { c: 'AL', name: 'Alabama', col: 9, row: 6 },
-  { c: 'GA', name: 'Georgia', col: 10, row: 7 },
-  { c: 'SC', name: 'South Carolina', col: 11, row: 6 },
-  { c: 'HI', name: 'Hawaii', col: 2, row: 7 },
-  { c: 'FL', name: 'Florida', col: 11, row: 7 },
-]
+const FIPS_TO_CODE: Record<string, string> = {
+  '01':'AL','02':'AK','04':'AZ','05':'AR','06':'CA','08':'CO','09':'CT',
+  '10':'DE','11':'DC','12':'FL','13':'GA','15':'HI','16':'ID','17':'IL',
+  '18':'IN','19':'IA','20':'KS','21':'KY','22':'LA','23':'ME','24':'MD',
+  '25':'MA','26':'MI','27':'MN','28':'MS','29':'MO','30':'MT','31':'NE',
+  '32':'NV','33':'NH','34':'NJ','35':'NM','36':'NY','37':'NC','38':'ND',
+  '39':'OH','40':'OK','41':'OR','42':'PA','44':'RI','45':'SC','46':'SD',
+  '47':'TN','48':'TX','49':'UT','50':'VT','51':'VA','53':'WA','54':'WV',
+  '55':'WI','56':'WY',
+}
 
 function volColor(cnt: number) {
   if (cnt === 0) return PG.c.paperEdge
@@ -166,6 +123,66 @@ function QuickPeek({ code, name, count }: { code: string; name: string; count: n
   )
 }
 
+const USMapChart = memo(function USMapChart({
+  byCode,
+  hovered,
+  onHover,
+  onSelect,
+}: {
+  byCode: Map<string, { count: number; name: string }>
+  hovered: string
+  onHover: (code: string) => void
+  onSelect: (code: string) => void
+}) {
+  return (
+    <ComposableMap projection="geoAlbersUsa" projectionConfig={{ scale: 1050 }} width={880} height={520}>
+      <Geographies geography={GEO_URL}>
+        {({ geographies }) =>
+          geographies.map((geo) => {
+            const code = FIPS_TO_CODE[geo.id]
+            if (!code) return null
+            const cnt = byCode.get(code)?.count ?? 0
+            const locked = cnt === 0
+            const fill = volColor(cnt)
+            const active = code === hovered
+            return (
+              <Geography
+                key={geo.rsmKey}
+                geography={geo}
+                onMouseEnter={() => onHover(code)}
+                onFocus={() => onHover(code)}
+                onClick={() => !locked && onSelect(code)}
+                tabIndex={0}
+                role="link"
+                aria-label={`${geo.properties.name}: ${cnt} plates`}
+                style={{
+                  default: {
+                    fill,
+                    stroke: PG.c.rule,
+                    strokeWidth: active ? 2.5 : 1,
+                    outline: 'none',
+                    cursor: locked ? 'not-allowed' : 'pointer',
+                    opacity: locked ? 0.65 : 1,
+                  },
+                  hover: {
+                    fill,
+                    stroke: PG.c.ink,
+                    strokeWidth: 2.5,
+                    outline: 'none',
+                    cursor: locked ? 'not-allowed' : 'pointer',
+                    opacity: locked ? 0.85 : 1,
+                  },
+                  pressed: { fill, outline: 'none' },
+                }}
+              />
+            )
+          })
+        }
+      </Geographies>
+    </ComposableMap>
+  )
+})
+
 export default function States() {
   const { data, isLoading } = useMapSummary()
   const navigate = useNavigate()
@@ -177,10 +194,6 @@ export default function States() {
   const total = data?.states.reduce((a, s) => a + s.plate_count, 0) ?? 0
   const unlocked = data?.states.filter((s) => s.plate_count > 0).length ?? 0
 
-  const cols = 12
-  const rows = 7
-  const cell = 72
-  const gap = 8
   const hoveredCount = byCode.get(hovered)?.count ?? 0
   const hoveredName = byCode.get(hovered)?.name ?? US_STATES[hovered] ?? hovered
 
@@ -198,7 +211,7 @@ export default function States() {
             50 states + 1 district · a living index
           </div>
           <h1 className="font-display text-[64px] font-black uppercase leading-[0.9] tracking-[-2px] text-ink">
-            The periodic table of plates.
+            Plates across the country.
           </h1>
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2.5">
@@ -220,97 +233,24 @@ export default function States() {
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
-        {/* Periodic grid */}
         <div
-          className="overflow-hidden rounded-[18px] border-[1.5px] border-rule bg-paper p-6"
+          className="overflow-hidden rounded-[18px] border-[1.5px] border-rule bg-paper p-4"
           style={{ boxShadow: '0 3px 0 var(--color-rule)' }}
         >
           {isLoading ? (
-            <div className="flex h-[540px] items-center justify-center font-mono text-sm text-ink-muted">
+            <div className="flex h-[520px] items-center justify-center font-mono text-sm text-ink-muted">
               Loading state data…
             </div>
           ) : (
-            <div
-              className="relative mx-auto"
-              style={{
-                width: cols * cell + (cols - 1) * gap,
-                height: rows * cell + (rows - 1) * gap,
-              }}
-            >
-              {Array.from({ length: cols }).map((_, c) =>
-                Array.from({ length: rows }).map((_, r) => (
-                  <div
-                    key={`bg-${c}-${r}`}
-                    className="absolute rounded-md"
-                    style={{
-                      left: c * (cell + gap),
-                      top: r * (cell + gap),
-                      width: cell,
-                      height: cell,
-                      border: `1px dashed ${PG.c.paperEdge}`,
-                    }}
-                  />
-                )),
-              )}
-              {STATE_GRID.map((s) => {
-                const cnt = byCode.get(s.c)?.count ?? 0
-                const locked = cnt === 0
-                const bg = volColor(cnt)
-                const isHot = cnt >= 250
-                const fg = isHot ? PG.c.cream : PG.c.ink
-                const active = s.c === hovered
-                return (
-                  <button
-                    key={s.c}
-                    type="button"
-                    onMouseEnter={() => setHovered(s.c)}
-                    onFocus={() => setHovered(s.c)}
-                    onClick={() => !locked && navigate(`/states/${s.c}`)}
-                    aria-label={`${s.name}: ${cnt} plates`}
-                    className={clsx(
-                      'absolute flex flex-col justify-between rounded-md p-1.5 text-left transition-transform',
-                      locked ? 'cursor-not-allowed' : 'cursor-pointer hover:-translate-y-0.5',
-                    )}
-                    style={{
-                      left: (s.col - 1) * (cell + gap),
-                      top: (s.row - 1) * (cell + gap),
-                      width: cell,
-                      height: cell,
-                      background: bg,
-                      border: active ? `2.5px solid ${PG.c.ink}` : `1.5px solid ${PG.c.rule}`,
-                      boxShadow: active ? `0 4px 0 ${PG.c.ink}` : locked ? 'none' : `0 2px 0 ${PG.c.rule}`,
-                      opacity: locked ? 0.6 : 1,
-                      transform: active ? 'translateY(-2px)' : undefined,
-                    }}
-                  >
-                    <div className="flex items-start justify-between">
-                      <span className="font-mono text-[9px] font-bold" style={{ color: fg, opacity: 0.65 }}>
-                        {s.col}·{s.row}
-                      </span>
-                      {locked && <span className="text-[10px]">🔒</span>}
-                    </div>
-                    <div>
-                      <div
-                        className="font-display text-[24px] font-black leading-[0.85] tracking-tight"
-                        style={{ color: fg }}
-                      >
-                        {s.c}
-                      </div>
-                      <div
-                        className="mt-0.5 font-mono text-[9px] font-bold"
-                        style={{ color: fg, opacity: 0.75 }}
-                      >
-                        {locked ? '— — —' : String(cnt).padStart(3, '0')}
-                      </div>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
+            <USMapChart
+              byCode={byCode}
+              hovered={hovered}
+              onHover={setHovered}
+              onSelect={(code) => navigate(`/states/${code}`)}
+            />
           )}
         </div>
 
-        {/* Quick peek panel */}
         <QuickPeek code={hovered} name={hoveredName} count={hoveredCount} />
       </div>
     </motion.main>

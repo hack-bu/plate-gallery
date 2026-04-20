@@ -80,6 +80,7 @@ function PlateTile({ plate, rankLabel }: { plate: Plate; rankLabel?: string }) {
           width={260}
           height={160}
           imageUrl={plate.image_thumb_url || plate.image_url}
+          fallbackImageUrl={plate.image_url}
           alt={`${plate.plate_text} · ${plate.state_name}`}
         />
         {rankLabel && (
