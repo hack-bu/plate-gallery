@@ -150,7 +150,6 @@ const USMapChart = memo(function USMapChart({
                 key={geo.rsmKey}
                 geography={geo}
                 onMouseEnter={() => onHover(code)}
-                onFocus={() => onHover(code)}
                 onClick={() => !locked && onSelect(code)}
                 tabIndex={0}
                 role="link"
