@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { clsx } from 'clsx'
 import { useAuth } from '@/hooks/AuthContext'
@@ -13,6 +14,14 @@ const LINKS = [
 export function Nav() {
   const { user, loading } = useAuth()
   const navigate = useNavigate()
+  const [q, setQ] = useState('')
+
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault()
+    const trimmed = q.trim()
+    if (!trimmed) return
+    navigate(`/?q=${encodeURIComponent(trimmed)}`)
+  }
 
   const initials = (() => {
     if (!user) return '?'
@@ -50,13 +59,24 @@ export function Nav() {
         ))}
       </div>
 
-      <div className="ml-auto hidden h-10 max-w-[320px] flex-1 items-center gap-2 rounded-full border-[1.5px] border-rule bg-paper px-4 text-[13px] font-medium text-ink-muted md:flex">
+      <form
+        onSubmit={handleSearch}
+        className="ml-auto hidden h-10 max-w-[320px] flex-1 items-center gap-2 rounded-full border-[1.5px] border-rule bg-paper px-4 text-[13px] font-medium text-ink md:flex"
+        role="search"
+      >
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
           <circle cx="6" cy="6" r="4.5" stroke="var(--color-ink-soft)" strokeWidth="1.5" />
           <path d="M9.5 9.5L12 12" stroke="var(--color-ink-soft)" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
-        search plates, states, creators…
-      </div>
+        <input
+          type="search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="search plates…"
+          className="h-full w-full bg-transparent text-[13px] font-medium text-ink placeholder:text-ink-muted focus:outline-none"
+          aria-label="Search plates"
+        />
+      </form>
 
       <button
         type="button"

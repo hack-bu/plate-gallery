@@ -42,7 +42,7 @@ export function Footer() {
         </div>
       </div>
       <div className="border-t border-paper-edge px-8 py-5 text-center font-mono text-[11px] font-bold uppercase tracking-[1.5px] text-ink-muted">
-        © {new Date().getFullYear()} PlateGallery · Built for BostonHacks
+        © {new Date().getFullYear()} PlateGallery
       </div>
     </footer>
   )

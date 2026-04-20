@@ -17,13 +17,14 @@ import type {
 } from '@/lib/types'
 
 // Feed
-export function useFeed(filters: { state?: string; sort?: string }) {
+export function useFeed(filters: { state?: string; sort?: string; q?: string }) {
   return useInfiniteQuery({
     queryKey: queryKeys.plates.feed(filters),
     queryFn: ({ pageParam }) => {
       const params = new URLSearchParams()
       if (filters.state) params.set('state', filters.state)
       if (filters.sort) params.set('sort', filters.sort)
+      if (filters.q) params.set('q', filters.q)
       if (pageParam) params.set('cursor', pageParam)
       params.set('limit', '24')
       return apiFetch<PaginatedResponse<Plate>>(`/plates?${params}`)

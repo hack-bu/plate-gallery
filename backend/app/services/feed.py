@@ -28,6 +28,7 @@ async def query_feed(
     user_id: uuid.UUID | None = None,
     include_rejected: bool = False,
     author_id: uuid.UUID | None = None,
+    q: str | None = None,
 ) -> tuple[list[Plate], str | None, dict[uuid.UUID, int]]:
     """Query plates for the feed. Returns (plates, next_cursor, user_votes_map)."""
     stmt = select(Plate)
@@ -41,6 +42,10 @@ async def query_feed(
 
     if state:
         stmt = stmt.where(Plate.state_code == state.upper())
+
+    if q:
+        needle = f"%{q.strip()}%"
+        stmt = stmt.where(Plate.plate_text.ilike(needle))
 
     if sort == "recent":
         stmt = stmt.order_by(Plate.created_at.desc(), Plate.id.desc())

@@ -297,9 +297,11 @@ export default function Home() {
   const [searchParams, setSearchParams] = useSearchParams()
   const sort = searchParams.get('sort') || 'top_week'
   const stateFilter = searchParams.get('state')
+  const query = searchParams.get('q') || undefined
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useFeed({
     sort,
     state: stateFilter || undefined,
+    q: query,
   })
   const plates = data?.pages.flatMap((p) => p.items) ?? []
 
@@ -342,6 +344,25 @@ export default function Home() {
       <FeedSideNav currentState={stateFilter} onStateChange={setStateFilter} />
       <section className="overflow-hidden px-7 py-5">
         <FeedHero count={plates.length} />
+        {query && (
+          <div className="mt-4 flex items-center gap-3 rounded-xl border-[1.5px] border-rule bg-mustard-lite px-4 py-2.5">
+            <span className="font-mono text-[10px] font-bold uppercase tracking-[1.5px] text-ink-muted">
+              SEARCH RESULTS
+            </span>
+            <span className="font-display text-[16px] font-black text-ink">"{query}"</span>
+            <button
+              type="button"
+              onClick={() => {
+                const next = new URLSearchParams(searchParams)
+                next.delete('q')
+                setSearchParams(next, { replace: true })
+              }}
+              className="ml-auto text-[11px] font-extrabold uppercase tracking-wide text-rust hover:underline"
+            >
+              Clear
+            </button>
+          </div>
+        )}
         <div className="mt-5 flex flex-wrap items-center gap-2">
           {SORTS.map((s) => (
             <button

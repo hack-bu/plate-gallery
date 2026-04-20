@@ -70,12 +70,13 @@ async def list_plates(
     sort: Literal["recent", "top_day", "top_week", "top_all"] = Query(default="recent"),
     cursor: str | None = Query(default=None),
     limit: int = Query(default=24, ge=1, le=48),
+    q: str | None = Query(default=None, max_length=64),
     user: User | None = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ) -> PaginatedResponse[PlateResponse]:
     user_id = user.id if user else None
     plates, next_cursor, user_votes = await query_feed(
-        db, state=state, sort=sort, cursor=cursor, limit=limit, user_id=user_id
+        db, state=state, sort=sort, cursor=cursor, limit=limit, user_id=user_id, q=q
     )
     items = [plate_to_response(p, user_votes.get(p.id, 0)) for p in plates]
     return PaginatedResponse(items=items, next_cursor=next_cursor)
