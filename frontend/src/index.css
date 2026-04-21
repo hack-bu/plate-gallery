@@ -1,0 +1,75 @@
+@import url('https://fonts.googleapis.com/css2?family=Sofia+Sans+Extra+Condensed:wght@700;800;900&family=Nunito:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-cream: #f5ecdc;
+  --color-paper: #fbf6ea;
+  --color-paper-edge: #ece2cc;
+  --color-ink: #1d1a14;
+  --color-ink-soft: #5a5246;
+  --color-ink-muted: #9a9181;
+  --color-rule: #2a251c;
+  --color-rust: #c24a20;
+  --color-rust-deep: #8f3414;
+  --color-cobalt: #1e3a8a;
+  --color-cobalt-lite: #3a5cc4;
+  --color-sky: #a9c6e8;
+  --color-mustard: #e6b245;
+  --color-mustard-lite: #f2cf7b;
+  --color-mint: #7ea28a;
+  --color-olive: #636b3a;
+  --color-cherry: #b6233d;
+  --color-white: #fffdf7;
+  --color-black: #0f0d09;
+
+  --font-display: 'Sofia Sans Extra Condensed', 'Arial Narrow', sans-serif;
+  --font-sans: 'Nunito', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  background-color: var(--color-cream);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+h1, h2, h3, h4, h5, h6, p {
+  margin: 0;
+}
+
+@layer base {
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
