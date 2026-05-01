@@ -16,6 +16,14 @@ const SORTS = [
   { k: 'top_all', label: 'Top all-time' },
 ]
 
+const EMPTY_COPY: Record<string, { title: string; body: string }> = {
+  top_week: { title: 'Nothing hot this week.', body: 'No plates have caught fire in the last 7 days. Post one and start the trend.' },
+  recent: { title: 'No plates yet.', body: 'Be the first to post.' },
+  top_day: { title: 'Nothing posted today.', body: 'No plates have racked up votes yet today. Check back later or post your own.' },
+  top_all: { title: 'No plates yet.', body: 'The all-time leaderboard is empty. Be the first to land on it.' },
+  default: { title: 'No plates yet.', body: 'Be the first to post.' },
+}
+
 function FeedSideNav({
   currentState,
   onStateChange,
@@ -297,7 +305,7 @@ function FeedRightRail() {
 
 export default function Home() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const sort = searchParams.get('sort') || 'top_week'
+  const sort = searchParams.get('sort') || 'recent'
   const stateFilter = searchParams.get('state')
   const query = searchParams.get('q') || undefined
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useFeed({
@@ -388,8 +396,8 @@ export default function Home() {
             plates.map((p) => <PlateCard key={p.id} plate={p} />)
           ) : (
             <div className="rounded-2xl border-[1.5px] border-dashed border-rule bg-paper p-10 text-center">
-              <h2 className="font-display text-3xl font-black tracking-tight text-ink">No plates yet.</h2>
-              <p className="mt-1.5 text-sm font-semibold text-ink-soft">Be the first to post.</p>
+              <h2 className="font-display text-3xl font-black tracking-tight text-ink">{EMPTY_COPY[sort]?.title ?? EMPTY_COPY.default.title}</h2>
+              <p className="mt-1.5 text-sm font-semibold text-ink-soft">{EMPTY_COPY[sort]?.body ?? EMPTY_COPY.default.body}</p>
               <Link to="/upload" className="mt-5 inline-block rounded-full bg-rust px-5 py-2.5 font-extrabold uppercase tracking-wide text-white">
                 Post a plate →
               </Link>
