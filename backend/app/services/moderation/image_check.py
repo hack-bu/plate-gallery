@@ -1,0 +1,277 @@
+from __future__ import annotations
+
+import base64
+import io
+import json
+import logging
+from dataclasses import dataclass
+
+import httpx
+from PIL import Image
+
+from app.core.config import settings
+from app.core.errors import UpstreamError
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ImageCheckResult:
+    ok: bool
+    reason: str | None = None
+    detail: str | None = None
+
+
+def rule_based_check(image_bytes: bytes) -> ImageCheckResult:
+    """Basic rule-based image validation."""
+    try:
+        img = Image.open(io.BytesIO(image_bytes))
+        img.verify()
+        img = Image.open(io.BytesIO(image_bytes))
+    except Exception:
+        return ImageCheckResult(ok=False, reason="low_quality", detail="Image file is corrupted")
+
+    width, height = img.size
+    short_edge = min(width, height)
+    if short_edge < 400:
+        return ImageCheckResult(
+            ok=False,
+            reason="low_quality",
+            detail=f"Image too small ({width}x{height}). Minimum 400px on short edge.",
+        )
+
+    return ImageCheckResult(ok=True)
+
+
+MODERATION_PROMPT = (
+    "You are a moderator for a vanity license plate gallery. Every approved image "
+    "MUST prominently show a real vehicle license plate (the metal/plastic plate "
+    "mounted on a car, truck, motorcycle, or trailer). Plates of food, decorative "
+    "wall plaques, name plates, printed screenshots, drawings, or generated "
+    "artwork are NOT license plates for this purpose.\n\n"
+    "Evaluate the image on these fields and return a strict JSON object:\n"
+    "- is_license_plate (bool): true only if a real vehicle license plate is the "
+    "clear subject and its characters are legible.\n"
+    "- is_explicit (bool): true if the image contains nudity, sexual content, "
+    "graphic gore, or other NSFW material.\n"
+    "- is_offensive_symbol (bool): true if it contains hate symbols, slurs, or "
+    "extremist iconography (swastikas, KKK imagery, etc.).\n"
+    "- quality_ok (bool): false if severely blurry, cropped, obstructed, or too "
+    "dark to read the plate.\n"
+    "- confidence (number 0-1): your confidence in the verdict.\n\n"
+    'Respond ONLY with JSON in this exact shape, no prose, no code fences:\n'
+    '{"is_license_plate": bool, "is_explicit": bool, "is_offensive_symbol": bool, '
+    '"quality_ok": bool, "confidence": number}'
+)
+
+
+HARMFUL_SAFETY_CATEGORIES = {
+    "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+    "HARM_CATEGORY_DANGEROUS_CONTENT",
+    "HARM_CATEGORY_HATE_SPEECH",
+    "HARM_CATEGORY_HARASSMENT",
+}
+
+BLOCKED_PROBABILITIES = {"HIGH", "MEDIUM"}
+
+
+def _check_safety_ratings(candidate: dict) -> ImageCheckResult | None:
+    """Return a reject result if Gemini safety ratings flag the image."""
+    ratings = candidate.get("safetyRatings") or []
+    for rating in ratings:
+        category = rating.get("category")
+        probability = rating.get("probability")
+        if category in HARMFUL_SAFETY_CATEGORIES and probability in BLOCKED_PROBABILITIES:
+            if category == "HARM_CATEGORY_SEXUALLY_EXPLICIT":
+                return ImageCheckResult(
+                    ok=False, reason="explicit", detail="Sexual content detected"
+                )
+            if category in {"HARM_CATEGORY_HATE_SPEECH", "HARM_CATEGORY_HARASSMENT"}:
+                return ImageCheckResult(
+                    ok=False,
+                    reason="offensive_text",
+                    detail="Hateful or harassing content detected",
+                )
+            return ImageCheckResult(
+                ok=False, reason="explicit", detail="Unsafe content detected"
+            )
+    return None
+
+
+def _interpret_moderation_json(raw: str) -> ImageCheckResult:
+    """Parse the model's JSON verdict and translate it into an ImageCheckResult."""
+    content = raw.strip()
+    if content.startswith("```"):
+        content = content.split("\n", 1)[-1].rsplit("```", 1)[0]
+    result = json.loads(content)
+
+    if result.get("is_explicit"):
+        return ImageCheckResult(ok=False, reason="explicit", detail="Explicit content detected")
+    if result.get("is_offensive_symbol"):
+        return ImageCheckResult(
+            ok=False, reason="offensive_text", detail="Offensive symbol detected"
+        )
+    if not result.get("is_license_plate", False):
+        return ImageCheckResult(
+            ok=False, reason="not_a_plate", detail="No license plate visible in image"
+        )
+    if not result.get("quality_ok", True):
+        return ImageCheckResult(ok=False, reason="low_quality", detail="Image quality too low")
+    return ImageCheckResult(ok=True)
+
+
+async def check_image_gemini(image_bytes: bytes, plate_text: str) -> ImageCheckResult:
+    """Use Gemini Flash to validate the image. Fails closed on errors."""
+    api_key = settings.GEMINI_API_KEY
+    if not api_key or not api_key.get_secret_value():
+        logger.error("MODERATION_PROVIDER=gemini but GEMINI_API_KEY is not set")
+        raise UpstreamError(
+            "Image moderation service is not configured. Please try again later."
+        )
+
+    b64 = base64.b64encode(image_bytes).decode()
+    url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{settings.GEMINI_MODEL}:generateContent"
+    )
+
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(
+                url,
+                headers={"x-goog-api-key": api_key.get_secret_value()},
+                json={
+                    "contents": [
+                        {
+                            "parts": [
+                                {"text": MODERATION_PROMPT},
+                                {"inline_data": {"mime_type": "image/jpeg", "data": b64}},
+                            ]
+                        }
+                    ],
+                    "generationConfig": {
+                        "temperature": 0,
+                        "responseMimeType": "application/json",
+                        "maxOutputTokens": 200,
+                    },
+                },
+            )
+            resp.raise_for_status()
+            payload = resp.json()
+    except httpx.HTTPError as e:
+        logger.error("Gemini vision request failed: %s", e)
+        raise UpstreamError(
+            "Image moderation service is temporarily unavailable. Please try again."
+        ) from e
+
+    prompt_feedback = payload.get("promptFeedback") or {}
+    block_reason = prompt_feedback.get("blockReason")
+    if block_reason:
+        logger.info("Gemini blocked prompt: %s", block_reason)
+        reason = "explicit" if block_reason in {"SAFETY", "PROHIBITED_CONTENT"} else "other"
+        return ImageCheckResult(
+            ok=False,
+            reason=reason,
+            detail=f"Content blocked by safety filter ({block_reason})",
+        )
+
+    candidates = payload.get("candidates") or []
+    if not candidates:
+        logger.error("Gemini returned no candidates: %s", payload)
+        raise UpstreamError(
+            "Image moderation service returned an unexpected response. Please try again."
+        )
+
+    candidate = candidates[0]
+
+    finish_reason = candidate.get("finishReason")
+    if finish_reason == "SAFETY":
+        return ImageCheckResult(
+            ok=False, reason="explicit", detail="Content blocked by safety filter"
+        )
+
+    safety_reject = _check_safety_ratings(candidate)
+    if safety_reject:
+        return safety_reject
+
+    try:
+        text = candidate["content"]["parts"][0]["text"]
+    except (KeyError, IndexError) as e:
+        logger.error("Gemini response missing text: %s (%s)", payload, e)
+        raise UpstreamError(
+            "Image moderation service returned an unexpected response. Please try again."
+        ) from e
+
+    try:
+        return _interpret_moderation_json(text)
+    except (json.JSONDecodeError, ValueError) as e:
+        logger.error("Gemini returned invalid JSON: %r (%s)", text, e)
+        raise UpstreamError(
+            "Image moderation service returned an unexpected response. Please try again."
+        ) from e
+
+
+async def check_image_openai(image_bytes: bytes, plate_text: str) -> ImageCheckResult:
+    """Use OpenAI Vision to validate the image. Fails closed on errors."""
+    api_key = settings.OPENAI_API_KEY
+    if not api_key or not api_key.get_secret_value():
+        logger.error("MODERATION_PROVIDER=openai but OPENAI_API_KEY is not set")
+        raise UpstreamError(
+            "Image moderation service is not configured. Please try again later."
+        )
+
+    b64 = base64.b64encode(image_bytes).decode()
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={"Authorization": f"Bearer {api_key.get_secret_value()}"},
+                json={
+                    "model": "gpt-4o-mini",
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": MODERATION_PROMPT},
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:image/jpeg;base64,{b64}",
+                                        "detail": "low",
+                                    },
+                                },
+                            ],
+                        }
+                    ],
+                    "max_tokens": 200,
+                },
+            )
+            resp.raise_for_status()
+            text = resp.json()["choices"][0]["message"]["content"]
+    except (httpx.HTTPError, KeyError, IndexError) as e:
+        logger.error("OpenAI vision request failed: %s", e)
+        raise UpstreamError(
+            "Image moderation service is temporarily unavailable. Please try again."
+        ) from e
+
+    try:
+        return _interpret_moderation_json(text)
+    except (json.JSONDecodeError, ValueError) as e:
+        logger.error("OpenAI returned invalid JSON: %r (%s)", text, e)
+        raise UpstreamError(
+            "Image moderation service returned an unexpected response. Please try again."
+        ) from e
+
+
+async def check_image(image_bytes: bytes, plate_text: str) -> ImageCheckResult:
+    """Run image checks based on configured provider."""
+    basic = rule_based_check(image_bytes)
+    if not basic.ok:
+        return basic
+
+    if settings.MODERATION_PROVIDER == "gemini":
+        return await check_image_gemini(image_bytes, plate_text)
+    if settings.MODERATION_PROVIDER == "openai":
+        return await check_image_openai(image_bytes, plate_text)
+
+    return ImageCheckResult(ok=True)
